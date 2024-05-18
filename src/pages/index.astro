@@ -16,26 +16,78 @@
 
 <script>
 	import * as THREE from 'three';
+	import { OrbitControls } from 'three/addons';
 
 	const scene = new THREE.Scene();
 	const camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
 
 	const renderer = new THREE.WebGLRenderer();
+	renderer.setClearColor("white");
 	renderer.setSize( window.innerWidth, window.innerHeight );
 	document.body.appendChild( renderer.domElement );
 
-	const geometry = new THREE.BoxGeometry( 1, 1, 1 );
-	const material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
-	const cube = new THREE.Mesh( geometry, material );
-	scene.add( cube );
+	const controls = new OrbitControls(camera, renderer.domElement);
 
-	camera.position.z = 5;
+	const nucleusGeo = new THREE.SphereGeometry( 15, 64, 32 );
+	const nucleusMat = new THREE.MeshLambertMaterial({ color: 0xdb8835 });
+	const nucleus = new THREE.Mesh( nucleusGeo, nucleusMat );
+	scene.add( nucleus );
+
+	const light = new THREE.PointLight(0xFFFFFF, 5000, 100);
+	light.position.set(0, 0, 50);
+	scene.add(light);
+
+	camera.position.z = 70;
+	controls.update();
+
+	// source: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/random
+	// inclusive min, exclusive max
+	function randBetween(min: number, max: number) {
+		return Math.random() * (max - min) + min;
+	}
+
+	function randStartPos(radius: number): [number, number, number] {
+		const x = randBetween(-radius, radius);
+		const rSlice = Math.sqrt(radius ** 2 - x ** 2);
+		const angle = randBetween(0, 2 * Math.PI);
+		const y = rSlice * Math.cos(angle);
+		const z = rSlice * Math.sin(angle);
+		return [+x.toFixed(2), +y.toFixed(2), +z.toFixed(2)];
+	}
+
+	function randRotation() {
+		const quaternion = new THREE.Quaternion();
+		return quaternion.random();
+	}
+
+	const electrons: THREE.Group<THREE.Object3DEventMap>[] = [];
+	const electronGeo = new THREE.SphereGeometry(2, 32, 16);
+	const electronMat = new THREE.MeshLambertMaterial({ color: 0x359bdb });
+
+	for (let i = 0; i < 15; i++) {
+		const electronMesh = new THREE.Mesh(electronGeo, electronMat);
+		electronMesh.position.set(...randStartPos(25));
+		electrons[i] = new THREE.Group();
+		electrons[i].add(electronMesh);
+	}
+
+	const rotations: THREE.Quaternion[] = [];
+
+	for (let electron of electrons) {
+		rotations.push(randRotation());
+		scene.add(electron);
+	}
 
 	function animate() {
 		requestAnimationFrame( animate );
 
-		cube.rotation.x += 0.01;
-		cube.rotation.y += 0.01;
+		for (let i = 0; i < electrons.length; i++) {
+			electrons[i].quaternion.rotateTowards(rotations[i], Math.PI / 50);
+
+			if (electrons[i].quaternion.equals(rotations[i])) {
+				rotations[i] = randRotation();
+			}
+		}
 
 		renderer.render( scene, camera );
 	}
