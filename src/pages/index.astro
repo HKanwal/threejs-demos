@@ -28,7 +28,7 @@
 
 	const controls = new OrbitControls(camera, renderer.domElement);
 
-	const nucleusGeo = new THREE.SphereGeometry( 15, 64, 32 );
+	const nucleusGeo = new THREE.SphereGeometry( 8, 64, 32 );
 	const nucleusMat = new THREE.MeshLambertMaterial({ color: 0xdb8835 });
 	const nucleus = new THREE.Mesh( nucleusGeo, nucleusMat );
 	scene.add( nucleus );
@@ -37,7 +37,7 @@
 	light.position.set(0, 0, 50);
 	scene.add(light);
 
-	camera.position.z = 70;
+	camera.position.z = 100;
 	controls.update();
 
 	// source: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/random
@@ -61,7 +61,7 @@
 	}
 
 	const electrons: THREE.Group<THREE.Object3DEventMap>[] = [];
-	const electronGeo = new THREE.SphereGeometry(2, 32, 16);
+	const electronGeo = new THREE.SphereGeometry(1, 32, 16);
 	const electronMat = new THREE.MeshLambertMaterial({ color: 0x359bdb });
 
 	for (let i = 0; i < 15; i++) {
@@ -88,6 +88,9 @@
 				rotations[i] = randRotation();
 			}
 		}
+
+		nucleus.position.x = randBetween(-0.5, 0.5);
+		nucleus.position.y = randBetween(-0.5, 0.5);
 
 		renderer.render( scene, camera );
 	}
