@@ -1,108 +1,42 @@
 ---
+import Layout from "../layouts/Layout.astro";
 
 ---
 
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
-	</head>
-	<body>
-	</body>
-</html>
+<Layout />
 
 <script>
-	import * as THREE from 'three';
-	import { OrbitControls } from 'three/addons';
+  import * as THREE from 'three';
+  import { OrbitControls } from 'three/addons';
 
-	const scene = new THREE.Scene();
-	const camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
+	function createRenderer(clearColor: string) {
+		const renderer = new THREE.WebGLRenderer({ antialias: true });
+		renderer.setClearColor(clearColor);
+		renderer.setSize(window.innerWidth, window.innerHeight);
+		document.body.appendChild(renderer.domElement);
+		return renderer;
+	}
 
-	const renderer = new THREE.WebGLRenderer({ antialias: true });
-	renderer.setClearColor("white");
-	renderer.setSize( window.innerWidth, window.innerHeight );
-	document.body.appendChild( renderer.domElement );
+  const scene = new THREE.Scene();
+	const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+  const renderer = createRenderer("white");
+  const controls = new OrbitControls(camera, renderer.domElement);
 
-	const controls = new OrbitControls(camera, renderer.domElement);
-
-	const nucleusGeo = new THREE.SphereGeometry( 8, 64, 32 );
-	const nucleusMat = new THREE.MeshLambertMaterial({ color: 0xdb8835 });
-	const nucleus = new THREE.Mesh( nucleusGeo, nucleusMat );
-	scene.add( nucleus );
-
-	const pointLight = new THREE.PointLight(0xFFFFFF, 5000, 100);
-	pointLight.position.set(0, 25, 25);
-	scene.add(pointLight);
-
-	const ambientLight = new THREE.AmbientLight(0xffffff, 2);
-	scene.add(ambientLight);
-
-	camera.position.z = 100;
+  camera.position.z = 10;
 	controls.update();
 
-	// source: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/random
-	// inclusive min, exclusive max
-	function randBetween(min: number, max: number) {
-		return Math.random() * (max - min) + min;
-	}
+  const planeGeo = new THREE.PlaneGeometry(1, 1);
+  const planeMat = new THREE.MeshBasicMaterial({ color: 0x359bdb, side: THREE.DoubleSide });
+  const plane = new THREE.Mesh(planeGeo, planeMat);
+  scene.add(plane);
 
-	function randStartPos(radius: number): [number, number, number] {
-		const x = randBetween(-radius, radius);
-		const rSlice = Math.sqrt(radius ** 2 - x ** 2);
-		const angle = randBetween(0, 2 * Math.PI);
-		const y = rSlice * Math.cos(angle);
-		const z = rSlice * Math.sin(angle);
-		return [+x.toFixed(2), +y.toFixed(2), +z.toFixed(2)];
-	}
-
-	function randRotation() {
-		const quaternion = new THREE.Quaternion();
-		return quaternion.random();
-	}
-
-	const electrons: THREE.Group<THREE.Object3DEventMap>[] = [];
-	const electronGeo = new THREE.SphereGeometry(1, 32, 16);
-	const electronMat = new THREE.MeshLambertMaterial({ color: 0x359bdb });
-
-	for (let i = 0; i < 15; i++) {
-		const electronMesh = new THREE.Mesh(electronGeo, electronMat);
-		electronMesh.position.set(...randStartPos(25));
-		electrons[i] = new THREE.Group();
-		electrons[i].add(electronMesh);
-	}
-
-	const rotations: THREE.Quaternion[] = [];
-
-	for (let electron of electrons) {
-		rotations.push(randRotation());
-		scene.add(electron);
-	}
-
-	function animate() {
+  function animate() {
 		requestAnimationFrame( animate );
 
-		for (let i = 0; i < electrons.length; i++) {
-			electrons[i].quaternion.rotateTowards(rotations[i], Math.PI / 50);
-
-			if (electrons[i].quaternion.equals(rotations[i])) {
-				rotations[i] = randRotation();
-			}
-		}
-
-		nucleus.position.x = randBetween(-0.5, 0.5);
-		nucleus.position.y = randBetween(-0.5, 0.5);
+		// TODO
 
 		renderer.render( scene, camera );
 	}
 
 	animate();
 </script>
-
-<style>
-	body {
-		margin: 0;
-	}
-</style>

@@ -1,0 +1,114 @@
+---
+import Layout from "../layouts/Layout.astro";
+
+---
+
+<Layout />
+
+<script>
+	import * as THREE from 'three';
+	import { OrbitControls } from 'three/addons';
+
+	const NUM_ELECTRONS = 15;
+	const ELECTRON_SLOW_FACTOR = 50;
+
+	function createRenderer(clearColor: string) {
+		const renderer = new THREE.WebGLRenderer({ antialias: true });
+		renderer.setClearColor(clearColor);
+		renderer.setSize(window.innerWidth, window.innerHeight);
+		document.body.appendChild(renderer.domElement);
+		return renderer;
+	}
+
+	// source: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/random
+	// inclusive min, exclusive max
+	function randRange(min: number, max: number) {
+		return Math.random() * (max - min) + min;
+	}
+
+	// gen rand 3D point on the surface of a sphere with given radius
+	function randSurfacePoint(radius: number): [number, number, number] {
+		const x = randRange(-radius, radius);
+		const angle = randRange(0, 2 * Math.PI);
+
+		const rSlice = Math.sqrt(radius ** 2 - x ** 2);
+		const y = rSlice * Math.cos(angle);
+		const z = rSlice * Math.sin(angle);
+
+		return [+x.toFixed(2), +y.toFixed(2), +z.toFixed(2)];
+	}
+
+	// gen a rand rotation
+	function randRotation(): THREE.Quaternion {
+		const quaternion = new THREE.Quaternion();
+		return quaternion.random();
+	}
+
+	function randRotations(n: number) {
+		const rotations: THREE.Quaternion[] = [];
+		
+		for (let i = 0; i < n; i++) {
+			rotations.push(randRotation());
+		}
+
+		return rotations;
+	}
+
+	function createElectrons(n: number) {
+		const electrons: THREE.Group<THREE.Object3DEventMap>[] = [];
+		const electronGeo = new THREE.SphereGeometry(1, 32, 16);
+		const electronMat = new THREE.MeshLambertMaterial({ color: 0x359bdb });
+
+		for (let i = 0; i < n; i++) {
+			const electronMesh = new THREE.Mesh(electronGeo, electronMat);
+			electronMesh.position.set(...randSurfacePoint(25));
+			electrons[i] = new THREE.Group();
+			electrons[i].add(electronMesh);
+		}
+
+		return electrons;
+	}
+
+	const scene = new THREE.Scene();
+	const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+	const renderer = createRenderer("white");
+	const controls = new OrbitControls(camera, renderer.domElement);
+
+	camera.position.z = 100;
+	controls.update();
+
+	const nucleusGeo = new THREE.SphereGeometry(8, 64, 32);
+	const nucleusMat = new THREE.MeshLambertMaterial({ color: 0xdb8835 });
+	const nucleus = new THREE.Mesh(nucleusGeo, nucleusMat);
+	scene.add(nucleus);
+
+	const pointLight = new THREE.PointLight(0xFFFFFF, 5000, 100);
+	pointLight.position.set(0, 25, 25);
+	scene.add(pointLight);
+
+	const ambientLight = new THREE.AmbientLight(0xffffff, 2);
+	scene.add(ambientLight);
+
+	const electrons = createElectrons(NUM_ELECTRONS);
+	const rotations = randRotations(electrons.length);
+	scene.add(...electrons);
+
+	function animate() {
+		requestAnimationFrame(animate);
+
+		for (let i = 0; i < electrons.length; i++) {
+			electrons[i].quaternion.rotateTowards(rotations[i], Math.PI / ELECTRON_SLOW_FACTOR);
+
+			if (electrons[i].quaternion.equals(rotations[i])) {
+				rotations[i] = randRotation();
+			}
+		}
+
+		nucleus.position.x = randRange(-0.5, 0.5);
+		nucleus.position.y = randRange(-0.5, 0.5);
+
+		renderer.render(scene, camera);
+	}
+
+	animate();
+</script>
