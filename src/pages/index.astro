@@ -6,7 +6,10 @@ import Layout from '../layouts/Layout.astro';
 
 <script>
   import * as THREE from 'three';
-  import { OrbitControls, FontLoader, TextGeometry } from 'three/addons';
+  import { OrbitControls, FontLoader, TextGeometry, Font } from 'three/addons';
+
+  const BORDER_RADIUS = 0.3;
+  const FONT_PATH = 'Manrope ExtraLight_Regular.json';
 
   function createRenderer(clearColor: string) {
     const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -16,83 +19,141 @@ import Layout from '../layouts/Layout.astro';
     return renderer;
   }
 
+  // centered on (0, 0)
+  function createRoundedPlane(width: number, height: number, borderRadius: number) {
+    const plane = new THREE.Shape();
+
+    plane.moveTo(-(width / 2) + borderRadius, height / 2);
+    plane.lineTo(width / 2 - borderRadius, height / 2);
+    plane.quadraticCurveTo(width / 2, height / 2, width / 2, height / 2 - borderRadius);
+    plane.lineTo(width / 2, -(height / 2) + borderRadius);
+    plane.quadraticCurveTo(width / 2, -(height / 2), width / 2 - borderRadius, -(height / 2));
+    plane.lineTo(-(width / 2) + borderRadius, -(height / 2));
+    plane.quadraticCurveTo(-(width / 2), -(height / 2), -(width / 2), -(height / 2) + borderRadius);
+    plane.lineTo(-(width / 2), height / 2 - borderRadius);
+    plane.quadraticCurveTo(-(width / 2), height / 2, -(width / 2) + borderRadius, height / 2);
+
+    return plane;
+  }
+
+  function loadFont(fontFamily: string): Promise<Font> {
+    return new Promise<Font>((resolve, reject) => {
+      const loader = new FontLoader();
+
+      const onProgressTick = (progress: ProgressEvent<EventTarget>) => {
+        console.log('font ' + (progress.loaded / progress.total) * 100 + '% loaded');
+      };
+
+      const onError = (err: any) => {
+        console.log('An error occurred while attempting to load font: ' + fontFamily);
+        reject();
+      };
+
+      const onSuccess = (font: Font) => {
+        resolve(font);
+      };
+
+      loader.load(fontFamily, onSuccess, onProgressTick, onError);
+    });
+  }
+
+  function togglePointer() {
+    const body = document.getElementsByTagName('body')[0];
+    body.style.cursor = body.style.cursor === 'pointer' ? 'auto' : 'pointer';
+  }
+
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
   const renderer = createRenderer('white');
   const controls = new OrbitControls(camera, renderer.domElement);
+  const raycaster = new THREE.Raycaster();
+  const pointer = new THREE.Vector2(-1, -1);
+  const onMouseEnters: { [objId: number]: () => void } = {};
+  const onMouseExits: { [objId: number]: () => void } = {};
 
   camera.position.z = 10;
   controls.update();
 
-  const plane = new THREE.Shape();
-  const borderRadius = 0.3;
-
-  plane.moveTo(-4 + borderRadius, 2.5);
-  plane.lineTo(4 - borderRadius, 2.5);
-  plane.quadraticCurveTo(4, 2.5, 4, 2.5 - borderRadius);
-  plane.lineTo(4, -2.5 + borderRadius);
-  plane.quadraticCurveTo(4, -2.5, 4 - borderRadius, -2.5);
-  plane.lineTo(-4 + borderRadius, -2.5);
-  plane.quadraticCurveTo(-4, -2.5, -4, -2.5 + borderRadius);
-  plane.lineTo(-4, 2.5 - borderRadius);
-  plane.quadraticCurveTo(-4, 2.5, -4 + borderRadius, 2.5);
-
+  const plane = createRoundedPlane(8, 5, BORDER_RADIUS);
   const planeGeo = new THREE.ShapeGeometry(plane);
   const planeMat = new THREE.MeshBasicMaterial({ color: 0x4287f5, side: THREE.DoubleSide });
   const planeMesh = new THREE.Mesh(planeGeo, planeMat);
   scene.add(planeMesh);
 
-  const loader = new FontLoader();
-  const font = loader.load(
-    'Manrope ExtraLight_Regular.json',
-    (font) => {
-      const textGeo = new TextGeometry('Hello World!', {
-        font: font,
-        size: 0.3,
-        depth: 0.01,
-        curveSegments: 12,
-      });
-      const textMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-      const textMesh = new THREE.Mesh(textGeo, textMat);
-      textMesh.position.set(-4 + borderRadius, 1.8, 0.01);
-      scene.add(textMesh);
-    },
-    function (xhr) {
-      console.log((xhr.loaded / xhr.total) * 100 + '% loaded');
-    },
-    // onError callback
-    function (err) {
-      console.log('An error happened');
-    }
-  );
+  loadFont(FONT_PATH).then((font) => {
+    const fontSize = 0.3;
 
-  const raycaster = new THREE.Raycaster();
-  const pointer = new THREE.Vector2();
+    const textGroup = new THREE.Group();
+    textGroup.position.set(-4 + BORDER_RADIUS, 1.8, 0.01);
+    scene.add(textGroup);
 
-  function onPointerMove(event: MouseEvent) {
-    // calculate pointer position in normalized device coordinates
-    // (-1 to +1) for both components
+    const textGeo = new TextGeometry('Atom', { font, size: fontSize, depth: 0.01 });
+    const textMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const textMesh = new THREE.Mesh(textGeo, textMat);
+    textGroup.add(textMesh);
 
-    pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
-    pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
-  }
+    const width = 1;
+    const planeGeo = new THREE.PlaneGeometry(width, fontSize);
+    const planeMat = new THREE.MeshBasicMaterial({
+      color: 0xff0000,
+      transparent: true,
+      opacity: 0,
+    });
+    const planeMesh = new THREE.Mesh(planeGeo, planeMat);
+    planeMesh.position.set(width / 2, fontSize / 2, 0);
+    textGroup.add(planeMesh);
+
+    let clickListener = () => {
+      window.location.href = '/atom';
+    };
+
+    onMouseEnters[planeMesh.id] = () => {
+      textMat.color = new THREE.Color(0xff0000);
+      togglePointer();
+      window.addEventListener('click', clickListener);
+    };
+    onMouseExits[planeMesh.id] = () => {
+      textMat.color = new THREE.Color(0xffffff);
+      togglePointer();
+      window.removeEventListener('click', clickListener);
+    };
+  });
+
+  let prevIntersectIds: number[] = [];
 
   function animate() {
-    requestAnimationFrame(animate);
-
-    // update the picking ray with the camera and pointer position
     raycaster.setFromCamera(pointer, camera);
+    const newIntersects = raycaster.intersectObjects(scene.children);
+    const newIntersectIds = newIntersects.map((intersect) => intersect.object.id);
 
-    // calculate objects intersecting the picking ray
-    const intersects = raycaster.intersectObjects(scene.children);
+    for (let intersect of newIntersects) {
+      const id = intersect.object.id;
 
-    for (let i = 0; i < intersects.length; i++) {
-      (intersects[i].object as any).material.color.set(0xff0000);
+      if (!prevIntersectIds.includes(id)) {
+        onMouseEnters[id] && onMouseEnters[id]();
+      }
     }
 
-    renderer.render(scene, camera);
+    for (let id of prevIntersectIds) {
+      if (!newIntersectIds.includes(id)) {
+        onMouseExits[id] && onMouseExits[id]();
+      }
+    }
+
+    prevIntersectIds = newIntersectIds;
   }
 
-  window.addEventListener('pointermove', onPointerMove);
-  animate();
+  // calculate pointer position in normalized device coordinates
+  // (-1 to +1) for both components
+  // source: https://threejs.org/docs/#api/en/core/Raycaster.set
+  window.addEventListener('pointermove', (e) => {
+    pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+    pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  });
+
+  (function animationLoop() {
+    requestAnimationFrame(animationLoop);
+    animate();
+    renderer.render(scene, camera);
+  })();
 </script>
