@@ -1,42 +1,98 @@
 ---
-import Layout from "../layouts/Layout.astro";
-
+import Layout from '../layouts/Layout.astro';
 ---
 
 <Layout />
 
 <script>
   import * as THREE from 'three';
-  import { OrbitControls } from 'three/addons';
+  import { OrbitControls, FontLoader, TextGeometry } from 'three/addons';
 
-	function createRenderer(clearColor: string) {
-		const renderer = new THREE.WebGLRenderer({ antialias: true });
-		renderer.setClearColor(clearColor);
-		renderer.setSize(window.innerWidth, window.innerHeight);
-		document.body.appendChild(renderer.domElement);
-		return renderer;
-	}
+  function createRenderer(clearColor: string) {
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setClearColor(clearColor);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+    return renderer;
+  }
 
   const scene = new THREE.Scene();
-	const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-  const renderer = createRenderer("white");
+  const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+  const renderer = createRenderer('white');
   const controls = new OrbitControls(camera, renderer.domElement);
 
   camera.position.z = 10;
-	controls.update();
+  controls.update();
 
-  const planeGeo = new THREE.PlaneGeometry(1, 1);
-  const planeMat = new THREE.MeshBasicMaterial({ color: 0x359bdb, side: THREE.DoubleSide });
-  const plane = new THREE.Mesh(planeGeo, planeMat);
-  scene.add(plane);
+  const plane = new THREE.Shape();
+  const borderRadius = 0.3;
+
+  plane.moveTo(-4 + borderRadius, 2.5);
+  plane.lineTo(4 - borderRadius, 2.5);
+  plane.quadraticCurveTo(4, 2.5, 4, 2.5 - borderRadius);
+  plane.lineTo(4, -2.5 + borderRadius);
+  plane.quadraticCurveTo(4, -2.5, 4 - borderRadius, -2.5);
+  plane.lineTo(-4 + borderRadius, -2.5);
+  plane.quadraticCurveTo(-4, -2.5, -4, -2.5 + borderRadius);
+  plane.lineTo(-4, 2.5 - borderRadius);
+  plane.quadraticCurveTo(-4, 2.5, -4 + borderRadius, 2.5);
+
+  const planeGeo = new THREE.ShapeGeometry(plane);
+  const planeMat = new THREE.MeshBasicMaterial({ color: 0x4287f5, side: THREE.DoubleSide });
+  const planeMesh = new THREE.Mesh(planeGeo, planeMat);
+  scene.add(planeMesh);
+
+  const loader = new FontLoader();
+  const font = loader.load(
+    'Manrope ExtraLight_Regular.json',
+    (font) => {
+      const textGeo = new TextGeometry('Hello World!', {
+        font: font,
+        size: 0.3,
+        depth: 0.01,
+        curveSegments: 12,
+      });
+      const textMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+      const textMesh = new THREE.Mesh(textGeo, textMat);
+      textMesh.position.set(-4 + borderRadius, 1.8, 0.01);
+      scene.add(textMesh);
+    },
+    function (xhr) {
+      console.log((xhr.loaded / xhr.total) * 100 + '% loaded');
+    },
+    // onError callback
+    function (err) {
+      console.log('An error happened');
+    }
+  );
+
+  const raycaster = new THREE.Raycaster();
+  const pointer = new THREE.Vector2();
+
+  function onPointerMove(event: MouseEvent) {
+    // calculate pointer position in normalized device coordinates
+    // (-1 to +1) for both components
+
+    pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
+    pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
+  }
 
   function animate() {
-		requestAnimationFrame( animate );
+    requestAnimationFrame(animate);
 
-		// TODO
+    // update the picking ray with the camera and pointer position
+    raycaster.setFromCamera(pointer, camera);
 
-		renderer.render( scene, camera );
-	}
+    // calculate objects intersecting the picking ray
+    const intersects = raycaster.intersectObjects(scene.children);
 
-	animate();
+    for (let i = 0; i < intersects.length; i++) {
+      (intersects[i].object as any).material.color.set(0xff0000);
+    }
+
+    renderer.render(scene, camera);
+  }
+
+  window.addEventListener('pointermove', onPointerMove);
+  animate();
 </script>
