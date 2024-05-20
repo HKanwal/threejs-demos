@@ -1,0 +1,113 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout />
+
+<script>
+  import * as THREE from 'three';
+  import { OrbitControls } from 'three/addons';
+
+  // source: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/random
+  // inclusive min, exclusive max
+  function randRange(min: number, max: number) {
+    return Math.random() * (max - min) + min;
+  }
+
+  function createRenderer(clearColor: string) {
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setClearColor(clearColor);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+    return renderer;
+  }
+
+  // centered on (0, 0)
+  function createRoundedRect(width: number, height: number, borderRadius: number) {
+    const rect = new THREE.Shape();
+
+    rect.moveTo(-(width / 2) + borderRadius, height / 2);
+    rect.lineTo(width / 2 - borderRadius, height / 2);
+    rect.quadraticCurveTo(width / 2, height / 2, width / 2, height / 2 - borderRadius);
+    rect.lineTo(width / 2, -(height / 2) + borderRadius);
+    rect.quadraticCurveTo(width / 2, -(height / 2), width / 2 - borderRadius, -(height / 2));
+    rect.lineTo(-(width / 2) + borderRadius, -(height / 2));
+    rect.quadraticCurveTo(-(width / 2), -(height / 2), -(width / 2), -(height / 2) + borderRadius);
+    rect.lineTo(-(width / 2), height / 2 - borderRadius);
+    rect.quadraticCurveTo(-(width / 2), height / 2, -(width / 2) + borderRadius, height / 2);
+
+    return rect;
+  }
+
+  function createBrick() {
+    const shape = createRoundedRect(20, 10, 1);
+    const geo = new THREE.ExtrudeGeometry(shape, { depth: 5 });
+    const mat = new THREE.MeshPhysicalMaterial({});
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.rotateX(Math.PI / 2);
+    mesh.rotateZ(Math.PI / 2);
+    return mesh;
+  }
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+  const renderer = createRenderer('black');
+  // const controls = new OrbitControls(camera, renderer.domElement);
+
+  camera.position.x = 30;
+  camera.position.y = 60;
+  camera.position.z = 50;
+  camera.lookAt(0, 0, -500);
+  // controls.update();
+
+  const light = new THREE.DirectionalLight(0xfff0dd, 1.5);
+  light.position.set(30, 60, 50);
+  light.target.position.set(0, 0, -50);
+  scene.add(light);
+  scene.add(light.target);
+
+  const bricks: THREE.Mesh<
+    THREE.ExtrudeGeometry,
+    THREE.MeshPhysicalMaterial,
+    THREE.Object3DEventMap
+  >[] = [];
+  let scrollPos = 0;
+
+  for (let xi = 0; xi < 10; xi++) {
+    for (let zi = 0; zi < 5; zi++) {
+      const brick = createBrick();
+      brick.position.set(
+        -40 + xi * 10 + xi * 0.1,
+        randRange(-90, 0) - zi * 10,
+        xi % 2 > 0 ? -zi * 20 - zi * 0.1 : -zi * 20 - zi * 0.1 + 10
+      );
+      bricks.push(brick);
+      scene.add(brick);
+    }
+  }
+
+  function animate() {
+    requestAnimationFrame(animate);
+
+    for (let brick of bricks) {
+      if (brick.position.y < 0) {
+        brick.position.y += 0.5;
+      }
+
+      if (brick.position.y > 0) {
+        brick.position.y = 0;
+      }
+    }
+
+    camera.position.z = 50 - (2 * scrollPos) / 100;
+
+    renderer.render(scene, camera);
+  }
+
+  window.addEventListener('wheel', (e: WheelEvent) => {
+    scrollPos += e.deltaY;
+    if (scrollPos < 0) scrollPos = 0;
+  });
+
+  animate();
+</script>
