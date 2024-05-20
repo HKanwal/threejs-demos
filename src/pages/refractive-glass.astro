@@ -1,0 +1,56 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout />
+
+<script>
+  import * as THREE from 'three';
+  import { OrbitControls } from 'three/addons';
+
+  function createRenderer(clearColor: string) {
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setClearColor(clearColor);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+    return renderer;
+  }
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+  const renderer = createRenderer('grey');
+  const controls = new OrbitControls(camera, renderer.domElement);
+
+  camera.position.z = 50;
+  controls.update();
+
+  // source: https://tympanus.net/codrops/2021/10/27/creating-the-effect-of-transparent-glass-and-plastic-in-three-js/
+  const donutGeo = new THREE.TorusGeometry(10, 3, 16, 100);
+  const donutMat = new THREE.MeshPhysicalMaterial({
+    metalness: 0,
+    roughness: 0,
+    transmission: 1,
+    thickness: 3, // refractivity
+  });
+  const donut = new THREE.Mesh(donutGeo, donutMat);
+  scene.add(donut);
+
+  const bgTexture = new THREE.TextureLoader().load('granular_texture.jpg');
+  const bgGeometry = new THREE.PlaneGeometry(50, 50);
+  const bgMaterial = new THREE.MeshBasicMaterial({ map: bgTexture });
+  const bgMesh = new THREE.Mesh(bgGeometry, bgMaterial);
+  bgMesh.position.set(0, 0, -10);
+  scene.add(bgMesh);
+
+  const light = new THREE.DirectionalLight(0xfff0dd, 1);
+  light.position.set(0, 0, 50);
+  scene.add(light);
+
+  function animate() {
+    requestAnimationFrame(animate);
+    light.position.set(camera.position.x, camera.position.y, camera.position.z);
+    renderer.render(scene, camera);
+  }
+
+  animate();
+</script>

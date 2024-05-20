@@ -10,6 +10,7 @@ import Layout from '../layouts/Layout.astro';
 
   const BORDER_RADIUS = 0.3;
   const FONT_PATH = 'Manrope ExtraLight_Regular.json';
+  const FONT_SIZE = 0.3;
 
   function createRenderer(clearColor: string) {
     const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -38,9 +39,14 @@ import Layout from '../layouts/Layout.astro';
     return plane;
   }
 
-  function loadFont(fontFamily: string): Promise<Font> {
-    return new Promise<Font>((resolve, reject) => {
-      const loader = new FontLoader();
+  function createTextGroup(
+    text: string,
+    href: string,
+    hitboxWidth: number
+  ): Promise<THREE.Group<THREE.Object3DEventMap>> {
+    return new Promise<THREE.Group<THREE.Object3DEventMap>>((resolve, reject) => {
+      const fontFamily = FONT_PATH;
+      const fontSize = FONT_SIZE;
 
       const onProgressTick = (progress: ProgressEvent<EventTarget>) => {
         console.log('font ' + (progress.loaded / progress.total) * 100 + '% loaded');
@@ -52,10 +58,42 @@ import Layout from '../layouts/Layout.astro';
       };
 
       const onSuccess = (font: Font) => {
-        resolve(font);
+        const textGroup = new THREE.Group();
+
+        const textGeo = new TextGeometry(text, { font, size: fontSize, depth: 0.01 });
+        const textMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        const textMesh = new THREE.Mesh(textGeo, textMat);
+        textGroup.add(textMesh);
+
+        const planeGeo = new THREE.PlaneGeometry(hitboxWidth, fontSize);
+        const planeMat = new THREE.MeshBasicMaterial({
+          color: 0xff0000,
+          transparent: true,
+          opacity: 0,
+        });
+        const planeMesh = new THREE.Mesh(planeGeo, planeMat);
+        planeMesh.position.set(hitboxWidth / 2, fontSize / 2, 0);
+        textGroup.add(planeMesh);
+
+        let clickListener = () => {
+          window.location.href = href;
+        };
+
+        onMouseEnters[planeMesh.id] = () => {
+          textMat.color = new THREE.Color(0xff0000);
+          togglePointer();
+          window.addEventListener('click', clickListener);
+        };
+        onMouseExits[planeMesh.id] = () => {
+          textMat.color = new THREE.Color(0xffffff);
+          togglePointer();
+          window.removeEventListener('click', clickListener);
+        };
+
+        resolve(textGroup);
       };
 
-      loader.load(fontFamily, onSuccess, onProgressTick, onError);
+      fontLoader.load(fontFamily, onSuccess, onProgressTick, onError);
     });
   }
 
@@ -78,6 +116,7 @@ import Layout from '../layouts/Layout.astro';
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
   const renderer = createRenderer('white');
+  const fontLoader = new FontLoader();
   const controls = createConstrainedControls();
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2(-1, -1);
@@ -96,43 +135,13 @@ import Layout from '../layouts/Layout.astro';
   planeGroup.add(planeMesh);
   scene.add(planeGroup);
 
-  loadFont(FONT_PATH).then((font) => {
-    const fontSize = 0.3;
-
-    const textGroup = new THREE.Group();
+  createTextGroup('Atom', '/atom', 1).then((textGroup) => {
     textGroup.position.set(-4 + BORDER_RADIUS, 1.8, 0.01);
     planeGroup.add(textGroup);
-
-    const textGeo = new TextGeometry('Atom', { font, size: fontSize, depth: 0.01 });
-    const textMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-    const textMesh = new THREE.Mesh(textGeo, textMat);
-    textGroup.add(textMesh);
-
-    const width = 1;
-    const planeGeo = new THREE.PlaneGeometry(width, fontSize);
-    const planeMat = new THREE.MeshBasicMaterial({
-      color: 0xff0000,
-      transparent: true,
-      opacity: 0,
-    });
-    const planeMesh = new THREE.Mesh(planeGeo, planeMat);
-    planeMesh.position.set(width / 2, fontSize / 2, 0);
-    textGroup.add(planeMesh);
-
-    let clickListener = () => {
-      window.location.href = '/atom';
-    };
-
-    onMouseEnters[planeMesh.id] = () => {
-      textMat.color = new THREE.Color(0xff0000);
-      togglePointer();
-      window.addEventListener('click', clickListener);
-    };
-    onMouseExits[planeMesh.id] = () => {
-      textMat.color = new THREE.Color(0xffffff);
-      togglePointer();
-      window.removeEventListener('click', clickListener);
-    };
+  });
+  createTextGroup('Refractive Glass', '/refractive-glass', 3).then((textGroup) => {
+    textGroup.position.set(-4 + BORDER_RADIUS, 1.8 - FONT_SIZE - 0.3, 0.01);
+    planeGroup.add(textGroup);
   });
 
   const floorGeo = new THREE.PlaneGeometry(500, 500);
