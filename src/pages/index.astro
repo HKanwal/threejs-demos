@@ -15,6 +15,8 @@ import Layout from '../layouts/Layout.astro';
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setClearColor(clearColor);
     renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     document.body.appendChild(renderer.domElement);
     return renderer;
   }
@@ -62,10 +64,21 @@ import Layout from '../layouts/Layout.astro';
     body.style.cursor = body.style.cursor === 'pointer' ? 'auto' : 'pointer';
   }
 
+  function createConstrainedControls() {
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.minAzimuthAngle = -Math.PI / 8;
+    controls.maxAzimuthAngle = Math.PI / 8;
+    controls.minPolarAngle = Math.PI / 3;
+    controls.maxPolarAngle = Math.PI / 1.8;
+    controls.enablePan = false;
+    controls.enableZoom = false;
+    return controls;
+  }
+
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
   const renderer = createRenderer('white');
-  const controls = new OrbitControls(camera, renderer.domElement);
+  const controls = createConstrainedControls();
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2(-1, -1);
   const onMouseEnters: { [objId: number]: () => void } = {};
@@ -74,18 +87,21 @@ import Layout from '../layouts/Layout.astro';
   camera.position.z = 10;
   controls.update();
 
+  const planeGroup = new THREE.Group();
   const plane = createRoundedPlane(8, 5, BORDER_RADIUS);
   const planeGeo = new THREE.ShapeGeometry(plane);
-  const planeMat = new THREE.MeshBasicMaterial({ color: 0x4287f5, side: THREE.DoubleSide });
+  const planeMat = new THREE.MeshLambertMaterial({ color: 0x4287f5, side: THREE.DoubleSide });
   const planeMesh = new THREE.Mesh(planeGeo, planeMat);
-  scene.add(planeMesh);
+  planeMesh.castShadow = true;
+  planeGroup.add(planeMesh);
+  scene.add(planeGroup);
 
   loadFont(FONT_PATH).then((font) => {
     const fontSize = 0.3;
 
     const textGroup = new THREE.Group();
     textGroup.position.set(-4 + BORDER_RADIUS, 1.8, 0.01);
-    scene.add(textGroup);
+    planeGroup.add(textGroup);
 
     const textGeo = new TextGeometry('Atom', { font, size: fontSize, depth: 0.01 });
     const textMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
@@ -119,6 +135,23 @@ import Layout from '../layouts/Layout.astro';
     };
   });
 
+  const floorGeo = new THREE.PlaneGeometry(500, 500);
+  const floorMat = new THREE.MeshPhongMaterial({ color: '#d9d9d9', side: THREE.DoubleSide });
+  const floorMesh = new THREE.Mesh(floorGeo, floorMat);
+  floorMesh.receiveShadow = true;
+  floorMesh.position.set(0, -2.8, 0);
+  floorMesh.rotation.set(Math.PI / 2, 0, 0);
+  scene.add(floorMesh);
+
+  const mainLight = new THREE.PointLight('white', 2, 0, 0.01);
+  mainLight.castShadow = true;
+  // fix blocky shadows
+  // source: https://stackoverflow.com/questions/49332256/how-to-improve-shadow-quality-in-three-js
+  mainLight.shadow.mapSize.width = 2048;
+  mainLight.shadow.mapSize.height = 2048;
+  mainLight.position.set(0, 10, 12);
+  scene.add(mainLight);
+
   let prevIntersectIds: number[] = [];
 
   function animate() {
@@ -139,6 +172,11 @@ import Layout from '../layouts/Layout.astro';
         onMouseExits[id] && onMouseExits[id]();
       }
     }
+
+    const polar = controls.getPolarAngle();
+    const azimuth = controls.getAzimuthalAngle();
+    planeGroup.rotation.x = polar / 2 - Math.PI / 4;
+    planeGroup.rotation.y = azimuth / 2;
 
     prevIntersectIds = newIntersectIds;
   }
