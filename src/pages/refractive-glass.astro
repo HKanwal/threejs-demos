@@ -35,7 +35,7 @@ import Layout from '../layouts/Layout.astro';
   const donut = new THREE.Mesh(donutGeo, donutMat);
   scene.add(donut);
 
-  const bgTexture = new THREE.TextureLoader().load('granular_texture.jpg');
+  const bgTexture = new THREE.TextureLoader().load('2d_texture.jpg');
   const bgGeometry = new THREE.PlaneGeometry(50, 50);
   const bgMaterial = new THREE.MeshBasicMaterial({ map: bgTexture });
   const bgMesh = new THREE.Mesh(bgGeometry, bgMaterial);
