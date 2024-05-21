@@ -1,0 +1,41 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout />
+
+<script>
+  import * as THREE from 'three';
+  import { OrbitControls } from 'three/addons';
+
+  function createRenderer(clearColor: string) {
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.setClearColor(clearColor);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+    return renderer;
+  }
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+  const renderer = createRenderer('grey');
+  const controls = new OrbitControls(camera, renderer.domElement);
+
+  camera.position.z = 50;
+  controls.update();
+
+  const light = new THREE.DirectionalLight(0xfff0dd, 1);
+  light.position.set(camera.position.x, camera.position.y, camera.position.z);
+  scene.add(light);
+
+  function animate() {
+    light.position.set(camera.position.x, camera.position.y, camera.position.z);
+  }
+
+  (function animationLoop() {
+    requestAnimationFrame(animationLoop);
+    animate();
+    renderer.render(scene, camera);
+  })();
+</script>
