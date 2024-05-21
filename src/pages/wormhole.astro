@@ -1,0 +1,92 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout />
+
+<script>
+  import * as THREE from 'three';
+  import { OrbitControls } from 'three/addons';
+  import {
+    EffectComposer,
+    RenderPass,
+    BloomPass,
+    GlitchPass,
+    OutputPass,
+    UnrealBloomPass,
+  } from 'three/addons';
+
+  function createRenderer(clearColor: string) {
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.setClearColor(clearColor);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+    return renderer;
+  }
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+  const renderer = createRenderer('black');
+  const controls = new OrbitControls(camera, renderer.domElement);
+  const composer = new EffectComposer(renderer);
+
+  camera.position.z = 50;
+  controls.update();
+
+  const light = new THREE.AmbientLight();
+  scene.add(light);
+
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0xffff00,
+    toneMapped: false,
+    emissive: 0x00ff00,
+    emissiveIntensity: 1.23,
+  });
+  const geo = new THREE.CylinderGeometry(0.4, 0.4, 40);
+
+  for (let i = 0; i < 100; i++) {
+    const line1 = new THREE.Mesh(geo, mat);
+    line1.position.set(-20, 5, -i * 60);
+    line1.rotateZ(-Math.PI / 6);
+    scene.add(line1);
+
+    const line2 = new THREE.Mesh(geo, mat);
+    line2.position.set(20, 5, -i * 60);
+    line2.rotateZ(Math.PI / 6);
+    scene.add(line2);
+
+    const line3 = new THREE.Mesh(geo, mat);
+    line3.position.set(0, -25, -i * 60);
+    line3.rotateZ(Math.PI / 2);
+    scene.add(line3);
+  }
+
+  const renderPass = new RenderPass(scene, camera);
+  composer.addPass(renderPass);
+
+  const bloomPass = new UnrealBloomPass(new THREE.Vector2(256, 256), 1, 1, 1);
+  composer.addPass(bloomPass);
+
+  const outputPass = new OutputPass();
+  composer.addPass(outputPass);
+
+  let velocity = 0.1;
+  const acceleration = 0.05;
+
+  function animate() {
+    // light.position.set(camera.position.x, camera.position.y, camera.position.z);
+    if (camera.position.z > -5000) {
+      camera.position.z -= velocity;
+      if (velocity < 2) {
+        velocity += acceleration;
+      }
+    }
+  }
+
+  (function animationLoop() {
+    requestAnimationFrame(animationLoop);
+    animate();
+    composer.render();
+  })();
+</script>
