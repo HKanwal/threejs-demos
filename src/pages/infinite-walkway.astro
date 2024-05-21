@@ -6,7 +6,21 @@ import Layout from '../layouts/Layout.astro';
 
 <script>
   import * as THREE from 'three';
-  import { OrbitControls } from 'three/addons';
+
+  const BRICK_LENGTH = 20;
+  const BRICK_BUFFER = 0.1;
+  const INITIAL_BRICKS = 6;
+  const WIDTH = 10;
+  const X_START = -40;
+  const CHUNK_SIZE = 6;
+  const NEW_CHUNK_DIST = 160;
+  const REMOVE_CHUNK_DIST = 280;
+
+  type Brick = THREE.Mesh<
+    THREE.ExtrudeGeometry,
+    THREE.MeshPhysicalMaterial,
+    THREE.Object3DEventMap
+  >;
 
   // source: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/random
   // inclusive min, exclusive max
@@ -49,65 +63,115 @@ import Layout from '../layouts/Layout.astro';
     return mesh;
   }
 
+  function zLen(nBricksZ: number) {
+    return BRICK_LENGTH * nBricksZ + BRICK_BUFFER * nBricksZ;
+  }
+
+  function genBricks(x: number, xn: number, z: number, zn: number) {
+    const zBricks: Brick[][] = [];
+
+    for (let zi = 0; zi < zn; zi++) {
+      const bricks: Brick[] = [];
+
+      for (let xi = 0; xi < xn; xi++) {
+        const brick = createBrick();
+        brick.position.set(
+          x + xi * 10 + xi * 0.1,
+          randRange(-90, -30) - zi * 10,
+          xi % 2 > 0 ? z - zLen(zi) : z - zLen(zi) + 10
+        );
+        bricks.push(brick);
+        scene.add(brick);
+      }
+
+      zBricks.push(bricks);
+    }
+
+    return zBricks;
+  }
+
+  function containsMovingBrick(bricks: Brick[]) {
+    return bricks.find((brick) => brick.position.y < 0) !== undefined;
+  }
+
+  function calcCameraZ(scrollPos: number) {
+    return 50 - 2 * scrollPos;
+  }
+
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
   const renderer = createRenderer('black');
-  // const controls = new OrbitControls(camera, renderer.domElement);
 
   camera.position.x = 30;
   camera.position.y = 60;
   camera.position.z = 50;
   camera.lookAt(0, 0, -500);
-  // controls.update();
 
   const light = new THREE.DirectionalLight(0xfff0dd, 1.5);
-  light.position.set(30, 60, 50);
+  light.position.set(camera.position.x, camera.position.y, camera.position.z);
   light.target.position.set(0, 0, -50);
   scene.add(light);
   scene.add(light.target);
 
-  const bricks: THREE.Mesh<
-    THREE.ExtrudeGeometry,
-    THREE.MeshPhysicalMaterial,
-    THREE.Object3DEventMap
-  >[] = [];
+  const zBricksUp = genBricks(X_START, WIDTH, 0, INITIAL_BRICKS);
+  const bricksDown: { [objId: number]: { brick: Brick; y: number } } = {};
   let scrollPos = 0;
 
-  for (let xi = 0; xi < 10; xi++) {
-    for (let zi = 0; zi < 5; zi++) {
-      const brick = createBrick();
-      brick.position.set(
-        -40 + xi * 10 + xi * 0.1,
-        randRange(-90, 0) - zi * 10,
-        xi % 2 > 0 ? -zi * 20 - zi * 0.1 : -zi * 20 - zi * 0.1 + 10
-      );
-      bricks.push(brick);
-      scene.add(brick);
-    }
-  }
-
   function animate() {
-    requestAnimationFrame(animate);
+    for (let bricks of zBricksUp) {
+      for (let brick of bricks) {
+        if (brick.position.y < 0) {
+          brick.position.y += 0.5;
+        }
 
-    for (let brick of bricks) {
-      if (brick.position.y < 0) {
-        brick.position.y += 0.5;
-      }
-
-      if (brick.position.y > 0) {
-        brick.position.y = 0;
+        if (brick.position.y > 0) {
+          brick.position.y = 0;
+        }
       }
     }
 
-    camera.position.z = 50 - (2 * scrollPos) / 100;
+    for (let id in bricksDown) {
+      if (bricksDown[id].y <= -90) {
+        scene.remove(bricksDown[id].brick);
+        delete bricksDown[id];
+        continue;
+      }
 
-    renderer.render(scene, camera);
+      bricksDown[id].y -= 0.5;
+
+      if (bricksDown[id].y <= bricksDown[id].brick.position.y) {
+        bricksDown[id].brick.position.y = bricksDown[id].y;
+      }
+    }
+
+    camera.position.z = calcCameraZ(scrollPos);
   }
 
   window.addEventListener('wheel', (e: WheelEvent) => {
-    scrollPos += e.deltaY;
+    scrollPos += e.deltaY / 100;
     if (scrollPos < 0) scrollPos = 0;
+
+    const cameraZ = calcCameraZ(scrollPos);
+    const lastBrickZ = -zLen(zBricksUp.length);
+    const zDist = cameraZ - lastBrickZ;
+
+    if (e.deltaY > 0 && zDist < NEW_CHUNK_DIST) {
+      zBricksUp.push(...genBricks(X_START, WIDTH, lastBrickZ, CHUNK_SIZE));
+    } else if (e.deltaY < 0 && zDist > REMOVE_CHUNK_DIST) {
+      for (let i = 0; i < CHUNK_SIZE; i++) {
+        const removedBricks: Brick[] = zBricksUp.pop() || [];
+
+        for (let removedBrick of removedBricks) {
+          const y = containsMovingBrick(removedBricks) ? 0 : randRange(0, 60) + i * 10;
+          bricksDown[removedBrick.id] = { brick: removedBrick, y };
+        }
+      }
+    }
   });
 
-  animate();
+  (function animationLoop() {
+    requestAnimationFrame(animationLoop);
+    animate();
+    renderer.render(scene, camera);
+  })();
 </script>
