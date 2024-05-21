@@ -11,6 +11,7 @@ import Layout from '../layouts/Layout.astro';
   const BORDER_RADIUS = 0.3;
   const FONT_PATH = 'Manrope ExtraLight_Regular.json';
   const FONT_SIZE = 0.3;
+  const SHOW_HITBOXES = false;
 
   function createRenderer(clearColor: string) {
     const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -68,7 +69,7 @@ import Layout from '../layouts/Layout.astro';
         const planeGeo = new THREE.PlaneGeometry(hitboxWidth, fontSize);
         const planeMat = new THREE.MeshBasicMaterial({
           color: 0xff0000,
-          transparent: true,
+          transparent: !SHOW_HITBOXES,
           opacity: 0,
         });
         const planeMesh = new THREE.Mesh(planeGeo, planeMat);
@@ -139,8 +140,12 @@ import Layout from '../layouts/Layout.astro';
     textGroup.position.set(-4 + BORDER_RADIUS, 1.8, 0.01);
     planeGroup.add(textGroup);
   });
-  createTextGroup('Refractive Glass', '/refractive-glass', 3).then((textGroup) => {
+  createTextGroup('Glass', '/refractive-glass', 1).then((textGroup) => {
     textGroup.position.set(-4 + BORDER_RADIUS, 1.8 - FONT_SIZE - 0.3, 0.01);
+    planeGroup.add(textGroup);
+  });
+  createTextGroup('Infinite Walkway', '/infinite-walkway', 3).then((textGroup) => {
+    textGroup.position.set(-4 + BORDER_RADIUS, 1.8 - 2 * FONT_SIZE - 2 * 0.3, 0.01);
     planeGroup.add(textGroup);
   });
 
